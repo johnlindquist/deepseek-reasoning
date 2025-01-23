@@ -3,7 +3,15 @@ dotenv.config();
 
 import OpenAI from "openai";
 import { appendFile } from "node:fs/promises";
-import ora from "ora";
+import { text, spinner, log } from "@clack/prompts";
+
+const s = spinner();
+
+const DATE = new Date().toISOString().split("T")[0];
+const LOG_FILE = `logs/${DATE}.log`;
+
+const appendLog = async (data: unknown) =>
+	appendFile(LOG_FILE, JSON.stringify(data, null, 2));
 
 declare global {
 	namespace NodeJS {
@@ -14,26 +22,62 @@ declare global {
 	}
 }
 
-const openai = new OpenAI({
+const deepseek = new OpenAI({
 	baseURL: "https://api.deepseek.com",
 	apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-const spinner = ora("Thinking...").start();
+const question = (await text({
+	message: "How can I help?",
+})) as string;
 
-const response = await openai.chat.completions.create({
+s.start("Thinking...");
+const response = await deepseek.chat.completions.create({
 	model: "deepseek-reasoner",
-	messages: [{ role: "user", content: "What's better, Taco or Burrito?" }],
+	messages: [{ role: "user", content: question }],
 });
 
 const reasoning = (
 	response.choices[0]?.message as unknown as { reasoning_content: string }
 ).reasoning_content;
 
-spinner.succeed("Done!");
-console.log(reasoning);
+s.stop();
 
-await appendFile(
-	"response.log",
-	`\n\n${new Date().toISOString()}\n\n${JSON.stringify(response, null, 2)}`,
-);
+log.info(`${reasoning.slice(0, 100)}...`);
+
+await appendLog(response);
+
+s.start("Summarizing...");
+
+const openai = new OpenAI({
+	baseURL: "https://openrouter.ai/api/v1",
+	apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+const completion = await openai.chat.completions.create({
+	model: "openai/gpt-3.5-turbo-0613",
+	messages: [
+		{
+			role: "system",
+			content:
+				"Answer the initial question in a single sentence based on the <REASONING>",
+		},
+		{
+			role: "user",
+			content: `
+<QUESTION>
+${question}
+</QUESTION>
+
+<REASONING>
+${reasoning}
+</REASONING>
+`,
+		},
+	],
+});
+
+log.info(completion.choices[0]?.message.content || "Failed to summarize...");
+s.stop();
+
+await appendLog(completion);
