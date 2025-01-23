@@ -53,8 +53,9 @@ for await (const chunk of deepseekResponse) {
 		reasoning += content;
 		process.stdout.write(content);
 	} else {
-		log.success("Reasoning done!");
 		deepseekResponse.controller.abort(); // stop the stream before it summarizes
+		log.success("Reasoning done!");
+		break;
 	}
 }
 
