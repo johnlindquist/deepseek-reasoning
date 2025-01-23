@@ -17,6 +17,10 @@
     "@types/node": "^22.10.9"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "@openrouter/ai-sdk-provider": "^0.0.6",
+    "ai": "^4.1.2",
+    "dotenv": "^16.4.7",
+    "openai": "^4.80.0",
+    "ora": "^8.1.1"
   }
 }
