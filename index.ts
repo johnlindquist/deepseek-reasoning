@@ -6,12 +6,15 @@ import { appendFile } from "node:fs/promises";
 import { text, spinner, log } from "@clack/prompts";
 
 const s = spinner();
-
-const DATE = new Date().toISOString().split("T")[0];
-const LOG_FILE = `logs/${DATE}.log`;
+const timestamp = new Date()
+	.toISOString()
+	.replace("T", "-")
+	.replace(/:/g, "-")
+	.split(".")[0];
+const logFile = `logs/${timestamp}.log`;
 
 const appendLog = async (data: unknown) =>
-	appendFile(LOG_FILE, JSON.stringify(data, null, 2));
+	appendFile(logFile, `---\n\n${JSON.stringify(data, null, 2)}\n\n`);
 
 declare global {
 	namespace NodeJS {
@@ -22,39 +25,51 @@ declare global {
 	}
 }
 
+const question = (await text({
+	message: "How can I help?",
+})) as string;
+
+log.info("Thinking...");
 const deepseek = new OpenAI({
 	baseURL: "https://api.deepseek.com",
 	apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-const question = (await text({
-	message: "How can I help?",
-})) as string;
-
-s.start("Thinking...");
-const response = await deepseek.chat.completions.create({
+const deepseekResponse = await deepseek.chat.completions.create({
 	model: "deepseek-reasoner",
 	messages: [{ role: "user", content: question }],
+	stream: true,
 });
 
-const reasoning = (
-	response.choices[0]?.message as unknown as { reasoning_content: string }
-).reasoning_content;
+let reasoning = "";
 
-s.stop();
+for await (const chunk of deepseekResponse) {
+	const reasoningContent =
+		(chunk.choices?.[0]?.delta as { reasoning_content: string })
+			?.reasoning_content ?? "";
 
-log.info(`${reasoning.slice(0, 100)}...`);
+	if (reasoningContent !== null) {
+		const content = reasoningContent;
+		reasoning += content;
+		process.stdout.write(content);
+	} else {
+		deepseekResponse.controller.abort(); // stop the stream before it summarizes
+	}
+}
 
-await appendLog(response);
+await appendLog(`
+REASONING:
+${reasoning}
+---------
+`);
 
 s.start("Summarizing...");
-
 const openai = new OpenAI({
 	baseURL: "https://openrouter.ai/api/v1",
 	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const completion = await openai.chat.completions.create({
+const gptResponse = await openai.chat.completions.create({
 	model: "openai/gpt-3.5-turbo-0613",
 	messages: [
 		{
@@ -77,7 +92,13 @@ ${reasoning}
 	],
 });
 
-log.info(completion.choices[0]?.message.content || "Failed to summarize...");
-s.stop();
+const summary = gptResponse.choices[0]?.message.content ?? "";
 
-await appendLog(completion);
+s.stop();
+log.info(summary);
+
+await appendLog(`
+SUMMARY:
+${summary}
+---------
+`);
