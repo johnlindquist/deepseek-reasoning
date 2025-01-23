@@ -44,15 +44,16 @@ const deepseekResponse = await deepseek.chat.completions.create({
 let reasoning = "";
 
 for await (const chunk of deepseekResponse) {
-	const reasoningContent =
-		(chunk.choices?.[0]?.delta as { reasoning_content: string })
-			?.reasoning_content ?? "";
+	const reasoningContent = (
+		chunk.choices?.[0]?.delta as { reasoning_content: string }
+	)?.reasoning_content;
 
 	if (reasoningContent !== null) {
 		const content = reasoningContent;
 		reasoning += content;
 		process.stdout.write(content);
 	} else {
+		log.success("Reasoning done!");
 		deepseekResponse.controller.abort(); // stop the stream before it summarizes
 	}
 }
