@@ -76,7 +76,7 @@ const gptResponse = await openai.chat.completions.create({
 		{
 			role: "system",
 			content:
-				"Answer the initial question in a single sentence based on the <REASONING>",
+				"Answer the initial <QUESTION> in a single sentence based on the <REASONING>",
 		},
 		{
 			role: "user",
