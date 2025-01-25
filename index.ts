@@ -7,8 +7,9 @@ import { appendFile, mkdir } from "node:fs/promises";
 import OpenAI from "openai";
 
 const OPEN_ROUTER_API_URL = "https://openrouter.ai/api/v1";
-const REASON_MODEL = 'google/gemini-2.0-flash-thinking-exp:free'
-const SUMMARIZER_MODEL = 'openai/gpt-4o-mini'
+const REASON_MODEL = "deepseek/deepseek-r1" // or "google/gemini-2.0-flash-thinking-exp:free"
+const SUMMARIZER_MODEL = "openai/gpt-4o-mini" // or "gpt-3.5-turbo-0613"
+
 const s = spinner();
 const timestamp = new Date()
 	.toISOString()
