@@ -1,10 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import { log, spinner, text } from "@clack/prompts";
+import { existsSync } from "node:fs";
+import { appendFile, mkdir } from "node:fs/promises";
 import OpenAI from "openai";
-import { appendFile } from "node:fs/promises";
-import { text, spinner, log } from "@clack/prompts";
 
+const OPEN_ROUTER_API_URL = "https://openrouter.ai/api/v1";
 const s = spinner();
 const timestamp = new Date()
 	.toISOString()
@@ -13,14 +15,17 @@ const timestamp = new Date()
 	.split(".")[0];
 const logFile = `logs/${timestamp}.log`;
 
-const appendLog = async (data: unknown) =>
+const appendLog = async (data: unknown) => {
+	if (!existsSync("logs")) {
+		await mkdir("logs");
+	}
 	appendFile(logFile, `---\n\n${JSON.stringify(data, null, 2)}\n\n`);
+}
 
 declare global {
 	namespace NodeJS {
 		interface ProcessEnv {
 			OPENROUTER_API_KEY: string;
-			DEEPSEEK_API_KEY: string;
 		}
 	}
 }
@@ -31,22 +36,23 @@ const question = (await text({
 
 log.info("Thinking...");
 const deepseek = new OpenAI({
-	baseURL: "https://api.deepseek.com",
-	apiKey: process.env.DEEPSEEK_API_KEY,
+	baseURL: OPEN_ROUTER_API_URL,
+	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 const deepseekResponse = await deepseek.chat.completions.create({
-	model: "deepseek-reasoner",
+	model: "deepseek/deepseek-r1",
 	messages: [{ role: "user", content: question }],
 	stream: true,
+	include_reasoning: true, // not in types yet
 });
 
 let reasoning = "";
 
 for await (const chunk of deepseekResponse) {
 	const reasoningContent = (
-		chunk.choices?.[0]?.delta as { reasoning_content: string }
-	)?.reasoning_content;
+		chunk.choices?.[0]?.delta as { reasoning: string }
+	)?.reasoning;
 
 	if (reasoningContent !== null) {
 		const content = reasoningContent;
@@ -67,7 +73,7 @@ ${reasoning}
 
 s.start("Summarizing...");
 const openai = new OpenAI({
-	baseURL: "https://openrouter.ai/api/v1",
+	baseURL: OPEN_ROUTER_API_URL,
 	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
