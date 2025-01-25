@@ -43,16 +43,17 @@ const deepseek = new OpenAI({
 	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const deepseekResponse = await deepseek.chat.completions.create({
+const reasoningResponse = await deepseek.chat.completions.create({
 	model: REASON_MODEL,
 	messages: [{ role: "user", content: question }],
 	stream: true,
+	stop: "</think>", // for stopping right after the reasoning
 	include_reasoning: true, // not in types yet
 });
 
 let reasoning = "";
 
-for await (const chunk of deepseekResponse) {
+for await (const chunk of reasoningResponse) {
 	const reasoningContent = (
 		chunk.choices?.[0]?.delta as { reasoning: string }
 	)?.reasoning;
@@ -62,7 +63,7 @@ for await (const chunk of deepseekResponse) {
 		reasoning += content;
 		process.stdout.write(content);
 	} else {
-		deepseekResponse.controller.abort(); // stop the stream before it summarizes
+		reasoningResponse.controller.abort(); // stop the stream before it summarizes
 		log.success("Reasoning done!");
 		break;
 	}
