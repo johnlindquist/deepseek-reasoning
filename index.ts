@@ -7,6 +7,8 @@ import { appendFile, mkdir } from "node:fs/promises";
 import OpenAI from "openai";
 
 const OPEN_ROUTER_API_URL = "https://openrouter.ai/api/v1";
+const REASON_MODEL = 'google/gemini-2.0-flash-thinking-exp:free'
+const SUMMARIZER_MODEL = 'openai/gpt-4o-mini'
 const s = spinner();
 const timestamp = new Date()
 	.toISOString()
@@ -41,7 +43,7 @@ const deepseek = new OpenAI({
 });
 
 const deepseekResponse = await deepseek.chat.completions.create({
-	model: "deepseek/deepseek-r1",
+	model: REASON_MODEL,
 	messages: [{ role: "user", content: question }],
 	stream: true,
 	include_reasoning: true, // not in types yet
@@ -78,7 +80,7 @@ const openai = new OpenAI({
 });
 
 const gptResponse = await openai.chat.completions.create({
-	model: "openai/gpt-3.5-turbo-0613",
+	model: SUMMARIZER_MODEL,
 	messages: [
 		{
 			role: "system",
