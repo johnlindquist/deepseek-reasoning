@@ -1,9 +1,14 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import { log, spinner, text } from "@clack/prompts";
+import { existsSync } from "node:fs";
+import { appendFile, mkdir } from "node:fs/promises";
 import OpenAI from "openai";
-import { appendFile } from "node:fs/promises";
-import { text, spinner, log } from "@clack/prompts";
+
+const OPEN_ROUTER_API_URL = "https://openrouter.ai/api/v1";
+const REASON_MODEL = "deepseek/deepseek-r1" // or "google/gemini-2.0-flash-thinking-exp:free"
+const SUMMARIZER_MODEL = "openai/gpt-4o-mini" // or "gpt-3.5-turbo-0613"
 
 const s = spinner();
 const timestamp = new Date()
@@ -13,14 +18,17 @@ const timestamp = new Date()
 	.split(".")[0];
 const logFile = `logs/${timestamp}.log`;
 
-const appendLog = async (data: unknown) =>
+const appendLog = async (data: unknown) => {
+	if (!existsSync("logs")) {
+		await mkdir("logs");
+	}
 	appendFile(logFile, `---\n\n${JSON.stringify(data, null, 2)}\n\n`);
+}
 
 declare global {
 	namespace NodeJS {
 		interface ProcessEnv {
 			OPENROUTER_API_KEY: string;
-			DEEPSEEK_API_KEY: string;
 		}
 	}
 }
@@ -31,29 +39,31 @@ const question = (await text({
 
 log.info("Thinking...");
 const deepseek = new OpenAI({
-	baseURL: "https://api.deepseek.com",
-	apiKey: process.env.DEEPSEEK_API_KEY,
+	baseURL: OPEN_ROUTER_API_URL,
+	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const deepseekResponse = await deepseek.chat.completions.create({
-	model: "deepseek-reasoner",
+const reasoningResponse = await deepseek.chat.completions.create({
+	model: REASON_MODEL,
 	messages: [{ role: "user", content: question }],
 	stream: true,
+	stop: "</think>", // for stopping right after the reasoning
+	include_reasoning: true, // not in types yet
 });
 
 let reasoning = "";
 
-for await (const chunk of deepseekResponse) {
+for await (const chunk of reasoningResponse) {
 	const reasoningContent = (
-		chunk.choices?.[0]?.delta as { reasoning_content: string }
-	)?.reasoning_content;
+		chunk.choices?.[0]?.delta as { reasoning: string }
+	)?.reasoning;
 
 	if (reasoningContent !== null) {
 		const content = reasoningContent;
 		reasoning += content;
 		process.stdout.write(content);
 	} else {
-		deepseekResponse.controller.abort(); // stop the stream before it summarizes
+		reasoningResponse.controller.abort(); // stop the stream before it summarizes
 		log.success("Reasoning done!");
 		break;
 	}
@@ -67,12 +77,12 @@ ${reasoning}
 
 s.start("Summarizing...");
 const openai = new OpenAI({
-	baseURL: "https://openrouter.ai/api/v1",
+	baseURL: OPEN_ROUTER_API_URL,
 	apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 const gptResponse = await openai.chat.completions.create({
-	model: "openai/gpt-3.5-turbo-0613",
+	model: SUMMARIZER_MODEL,
 	messages: [
 		{
 			role: "system",

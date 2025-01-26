@@ -31,9 +31,8 @@ DeepSeek's R1 model provides detailed reasoning before summarization. By isolati
 
 ## Requirements
 
-You'll need API keys for:
-- DeepSeek API
-- OpenRouter API (for GPT access)
+You'll need API key for:
+- OpenRouter API (for GPT & DeepSeek access)
 
 ## Setup
 
@@ -50,7 +49,6 @@ pnpm install
 
 3. Create a `.env` file with your API keys:
 ```bash
-DEEPSEEK_API_KEY=your_deepseek_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
@@ -78,6 +76,6 @@ The code demonstrates several key patterns:
 
 ## Tech Stack
 - TypeScript
-- OpenAI SDK (for both DeepSeek and OpenRouter)
+- OpenAI SDK (for OpenRouter)
 - Clack (for CLI interactions)
 - dotenv (for environment management) 
